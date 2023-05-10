@@ -6,19 +6,20 @@ def job_config():
     configuration of resource sets on summit and corresponding jobs
     '''
     try:
-        submission_dir=input("where to generate the submission and run scripts: ")
+        job_name=input("name for the directory holding submission and run scripts [e.g. job_XX]: ")
     except:
         print("no valid inputs, using default directory")
-        submission_dir="~/job_scripts/job_1"
-    if len(submission_dir)==0:
+        
+    if len(job_name)==0:
         print("no inputs, using default directory")
-        submission_dir="/ccs/home/mojia/job_scripts/job_1"
+        job_name="job_1"
+    #submission_dir="/ccs/home/mojia/job_scripts/"+job_name
 
     try:
         storage_dir=input("where to store MaCh3 outputs: ")
     except:
         print("no valid inputs, using default directory")
-        storage_dir="/gpfs/alpine/phy171/scratch/mojia/MaCh3_results/JointAtmFit"
+        
     if len(storage_dir)==0:
         print("no inputs, using default directory")
         storage_dir="/gpfs/alpine/phy171/scratch/mojia/MaCh3_results/JointAtmFit"
@@ -66,7 +67,7 @@ def job_config():
         print("invalid inputs, not using nvme")
         use_nvme=0
 
-    return {"sub_dir":submission_dir,
+    return {"job":job_name,
             "out_dir":storage_dir,
             "job_num":n_jobs,
             "iter_num":n_iter,
@@ -88,13 +89,16 @@ if __name__=="__main__":
     config=job_config()
     print(config)
     
+    sub_dir="/ccs/home/mojia/job_scripts/"+config["job"]
+    out_dir=config["out_dir"]+"/"+config["job"]
+
     work_dir=os.getcwd()
 
-    if (os.path.exists(config["sub_dir"])==False):
-        os.system("mkdir "+config["sub_dir"])
-        os.chdir(config["sub_dir"])
+    if (os.path.exists(sub_dir)==False):
+        os.system("mkdir "+sub_dir)
+        os.chdir(sub_dir)
     else:
-        os.chdir(config["sub_dir"])
+        os.chdir(sub_dir)
 
     #
     for itr in range(config["iter_num"]):
@@ -102,7 +106,7 @@ if __name__=="__main__":
         #generate submission/job lsf scripts
         submission_scripts=[]
         run_scripts_tot=[]
-        num_rs_job = 6*config["node_per_job"]
+        num_rs_job = 6*config["node_per_job"]   #6 resource sets per node
         for i in range(config["job_num"]):
             submission_scripts.append("submit_mach3_JointAtmFit_{0}_iter_{1}.lsf".format(i,itr))
             run_scripts_job=[]
@@ -120,8 +124,9 @@ if __name__=="__main__":
             replaceText(job_script,"WALLTIME",config["wall_time"])
             replaceText(job_script,"NNODE",str(config["node_per_job"]))
             replaceText(job_script,"ID",str(i))
+            replaceText(job_script,"iter",str(itr))
             for run_script in run_scripts_tot[i]:
-                sed_command="sed -i -e '/^#RUNSCRIPTS/a jsrun -n1 -a1 -g1 -c7 -bpacked:7 -dpacked "+config["sub_dir"]+"/"+run_script+" &' "+job_script
+                sed_command="sed -i -e '/^#RUNSCRIPTS/a jsrun -n1 -a1 -g1 -c7 -bpacked:7 -dpacked "+sub_dir+"/"+run_script+" &' "+job_script #fixed resource set config now with 1 rs per node for 1 task with 1 gpu and 7 packed cpu
                 os.system(sed_command)
 
         #generate run scripts
@@ -130,7 +135,7 @@ if __name__=="__main__":
 
             for j,run_script in enumerate(run_scripts_job):
                 os.system("cp "+work_dir+"/run_mach3_TEMPLATE.sh "+run_script)
-                replaceText(run_script,"OUTPUTDIR",config["out_dir"]+"/job_1")
+                replaceText(run_script,"OUTPUTDIR",out_dir+"/"+config["job"])
                 replaceText(run_script,"THREADSNUM",str(int(28/config["chain_per_rs"])))
 
                 if(config["use_bb"]):
@@ -154,11 +159,11 @@ if __name__=="__main__":
                     os.system(sed_command)
 
     #generate output directories and configuration files
-    if (os.path.exists(config["out_dir"]+"/job_1")==False):
-        os.system("mkdir "+config["out_dir"]+"/job_1")
-        os.chdir(config["out_dir"]+"/job_1")
+    if (os.path.exists(out_dir)==False):
+        os.system("mkdir "+out_dir)
+        os.chdir(out_dir)
     else:
-        os.chdir(config["out_dir"]+"/job_1")
+        os.chdir(out_dir)
 
     if (os.path.exists("./SampleConfigs")==False):
         os.system("cp -r "+work_dir+"/SampleConfigs .")
@@ -171,6 +176,7 @@ if __name__=="__main__":
         os.system("mkdir config")
 
         os.chdir("config")
+        print("generating output directories and configs for chain_{0} ...".format(cid))
         for itr in range(config["iter_num"]):
             if itr == 0:
                 startFromFile=False
@@ -181,25 +187,26 @@ if __name__=="__main__":
             #change configs
             sed_command="sed -i 's|NSTEPS.*|NSTEPS = "+str(config["num_step"])+"|' AtmConfig_Iter_"+str(itr)+".cfg"
             os.system(sed_command)    
-            sed_command="sed -i 's|OUTPUTNAME.*|OUTPUTNAME = \""+config["out_dir"]+"/job_1/chain_"+str(cid)+"/output/MaCh3-Atmospherics-MCMC_Iter_"+str(itr)+".root\"|' AtmConfig_Iter_"+str(itr)+".cfg"
+            sed_command="sed -i 's|OUTPUTNAME.*|OUTPUTNAME = \""+out_dir+"/chain_"+str(cid)+"/output/MaCh3-Atmospherics-MCMC_Iter_"+str(itr)+".root\"|' AtmConfig_Iter_"+str(itr)+".cfg"
             os.system(sed_command)
             if config["use_bb"]:
-                sed_command="sed -i 's|ATMCONFIGDIR.*|ATMCONFIGDIR = \""+config["out_dir"]+"/job_1/SampleConfigs/SampleConfigs_bb\"|' AtmConfig_Iter_"+str(itr)+".cfg"
+                sed_command="sed -i 's|ATMCONFIGDIR.*|ATMCONFIGDIR = \""+out_dir+"/SampleConfigs/SampleConfigs_bb\"|' AtmConfig_Iter_"+str(itr)+".cfg"
                 os.system(sed_command)
-                sed_command="sed -i 's|BEAMCONFIGDIR.*|BEAMCONFIGDIR = \""+config["out_dir"]+"/job_1/SampleConfigs/SampleConfigs_bb\"|' AtmConfig_Iter_"+str(itr)+".cfg"
+                sed_command="sed -i 's|BEAMCONFIGDIR.*|BEAMCONFIGDIR = \""+out_dir+"/SampleConfigs/SampleConfigs_bb\"|' AtmConfig_Iter_"+str(itr)+".cfg"
                 os.system(sed_command)
             else: 
-                sed_command="sed -i 's|ATMCONFIGDIR.*|ATMCONFIGDIR = \""+config["out_dir"]+"/job_1/SampleConfigs\"|' AtmConfig_Iter_"+str(itr)+".cfg"
+                sed_command="sed -i 's|ATMCONFIGDIR.*|ATMCONFIGDIR = \""+out_dir+"/SampleConfigs\"|' AtmConfig_Iter_"+str(itr)+".cfg"
                 os.system(sed_command)
-                sed_command="sed -i 's|BEAMCONFIGDIR.*|BEAMCONFIGDIR = \""+config["out_dir"]+"/job_1/SampleConfigs\"|' AtmConfig_Iter_"+str(itr)+".cfg"
+                sed_command="sed -i 's|BEAMCONFIGDIR.*|BEAMCONFIGDIR = \""+out_dir+"/SampleConfigs\"|' AtmConfig_Iter_"+str(itr)+".cfg"
                 os.system(sed_command)
 
             if startFromFile:
                 sed_command="sed -i 's|STARTFROMPOS.*|STARTFROMPOS = true|' AtmConfig_Iter_"+str(itr)+".cfg"
                 os.system(sed_command)
-                sed_command="sed -i 's|POSFILES.*|POSFILES = \""+config["out_dir"]+"/job_1/chain_"+str(cid)+"/output/MaCh3-Atmospherics-MCMC_Iter_"+str(itr-1)+".root\"|' AtmConfig_Iter_"+str(itr)+".cfg"
+                sed_command="sed -i 's|POSFILES.*|POSFILES = \""+out_dir+"/chain_"+str(cid)+"/output/MaCh3-Atmospherics-MCMC_Iter_"+str(itr-1)+".root\"|' AtmConfig_Iter_"+str(itr)+".cfg"
                 os.system(sed_command)
 
-        os.chdir(config["out_dir"]+"/job_1")
+        print("chain_{0} done.".format(cid)) 
+        os.chdir(out_dir)
 
     print("DONE!")

@@ -4,9 +4,9 @@
 #BSUB -W WALLTIME
 #BSUB -nnodes NNODE
 #BSUB -P phy171
-#BSUB -J MaCh3_JointAtmFit_t14_ID
-#BSUB -o jointFit_submit_log_ID.%J
-#BSUB -e jointFit_submit_error_ID.%J
+#BSUB -J JointAtmFit_ID_Itr_iter
+#BSUB -o jointFit_log_ID_Itr_iter.%J
+#BSUB -e jointFit_err_ID_Itr_iter.%J
 #BSUB -alloc_flags gpumps
 #BSUB -N
 #BSUB -B
