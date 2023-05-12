@@ -183,7 +183,7 @@ if __name__=="__main__":
             else:
                 startFromFile=True
 
-            os.system("cp "+work_dir+"/AtmConfig.cfg AtmConfig_Iter_"+str(itr)+".cfg")
+            os.system("cp "+work_dir+"/SampleConfigs/AtmConfig.cfg AtmConfig_Iter_"+str(itr)+".cfg")
             #change configs
             sed_command="sed -i 's|NSTEPS.*|NSTEPS = "+str(config["num_step"])+"|' AtmConfig_Iter_"+str(itr)+".cfg"
             os.system(sed_command)    
