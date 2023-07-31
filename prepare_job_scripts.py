@@ -135,7 +135,7 @@ if __name__=="__main__":
 
             for j,run_script in enumerate(run_scripts_job):
                 os.system("cp "+work_dir+"/run_mach3_TEMPLATE.sh "+run_script)
-                replaceText(run_script,"OUTPUTDIR",out_dir+"/"+config["job"])
+                replaceText(run_script,"OUTPUTDIR",out_dir)
                 replaceText(run_script,"THREADSNUM",str(int(28/config["chain_per_rs"])))
 
                 if(config["use_bb"]):
@@ -152,7 +152,7 @@ if __name__=="__main__":
                 for chain_id in chain_ids:
                     sed_command="sed -i -e '/^#CHAINS/a background_pid_"+str(chain_id)+"=$!' "+run_script
                     os.system(sed_command)
-                    sed_command="sed -i -e '/^#CHAINS/a ./AtmJointFit_Bin/JointAtmFit ${storage_dir}/chain_"+str(chain_id)+"/config/AtmConfig_Iter_"+str(itr)+".cfg &> ${storage_dir}/chain_"+str(chain_id)+"/output/jointAtmFit_Iter_"+str(itr)+".log &' "+run_script
+                    sed_command="sed -i -e '/^#CHAINS/a ./AtmJointFit_Bin/JointAtmFit_CorrFDDet_Data ${storage_dir}/chain_"+str(chain_id)+"/config/AtmConfig_Iter_"+str(itr)+".cfg &> ${storage_dir}/chain_"+str(chain_id)+"/output/jointAtmFit_Iter_"+str(itr)+".log &' "+run_script
                     os.system(sed_command)
                 
                     sed_command="sed -i -e '/^#WAIT/a wait ${background_pid_"+str(chain_id)+"}' "+run_script
